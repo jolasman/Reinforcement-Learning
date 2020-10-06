@@ -1,1 +1,1 @@
-# Q-Learning Algorithms
+# Q-Learning Algorithm
