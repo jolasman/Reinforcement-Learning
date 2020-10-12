@@ -4,7 +4,7 @@ import gym
 from gym import spaces
 import numpy as np
 
-env = gym.make('CartPole-v0')
+env = gym.make('MountainCar-v0')
 
 #getting the number of available actions in the ennvironment
 ENV_ACTION_SPACE_NUMBER = env.action_space.n
@@ -16,7 +16,7 @@ LEARNING_RATE = 0.1
 DISCOUNT = 0.95
 EPISODES = 25000
 
-SHOW_EVERY = 300
+SHOW_EVERY = 5000
 
 # Exploration settings
 epsilon = 1  # not a constant, going to be decayed
@@ -32,12 +32,17 @@ print(f"Available actions: {ENV_ACTION_SPACE_NUMBER}. Choosen action: {action}")
 #first always reset the env
 env.reset()
 
-# grouping the observation space ranges
-DISCRETE_OBSERVATIO_SPACE_SIZE = [20, 20, 20, 20]
+print(f"high OS len: {len(env.observation_space.high)}")
+print(f"low OS len:{len(env.observation_space.low)}")
+
+# Grouping the similar states into buckets (using 20 buckets * the length of the observation space)
+# If the observation space has information about velocity and position, the len will be 2, meaning a matrix of 20*20. 
+# So we are grouping all positions and velocities to reduce the number of possible values for the Q-table 
+DISCRETE_OBSERVATIO_SPACE_SIZE = [20] * len(env.observation_space.high)
 discrete_observation_space_window_size = (env.observation_space.high - env.observation_space.low)/DISCRETE_OBSERVATIO_SPACE_SIZE
 print(discrete_observation_space_window_size)
 
-#building the q table. It is a 20*20*20*20*ENV_ACTION_SPACE_NUMBER shape
+#building the q table. It is a 20*len(env.observation_space.high)*ENV_ACTION_SPACE_NUMBER shape
 q_table = np.random.uniform(low=-2, high=0, size=(DISCRETE_OBSERVATIO_SPACE_SIZE + [ENV_ACTION_SPACE_NUMBER]))
 print(f"q table shape: {q_table.shape}")
 
@@ -52,10 +57,7 @@ for episode in range(EPISODES):
     done = False
 
     if episode % SHOW_EVERY == 0:
-        render = True
         print(episode)
-    else:
-        render = False
 
     while not done:
         if np.random.random() > epsilon:
@@ -69,8 +71,8 @@ for episode in range(EPISODES):
 
         new_discrete_state = get_discrete_state(new_state)
 
-        #if episode % SHOW_EVERY == 0:
-        env.render()
+        if episode % SHOW_EVERY == 0:
+            env.render()
 
         # If simulation did not end yet after last step - update Q table
         if not done:
@@ -83,31 +85,19 @@ for episode in range(EPISODES):
             # Update Q table with new Q value
             q_table[discrete_state + (action,)] = new_q
 
+
         discrete_state = new_discrete_state
     # Decaying is being done every episode if episode number is within decaying range
     if END_EPSILON_DECAYING >= episode >= START_EPSILON_DECAYING:
         epsilon -= epsilon_decay_value
-""" 
-        # Simulation ended (for any reson) - if goal position is achived - update Q value with reward directly
-        elif new_state[0] >= env.goal_position:
-            #q_table[discrete_state + (action,)] = reward
-            q_table[discrete_state + (action,)] = 0 """
+
+    # Simulation ended (for any reson) - if goal position is achived - update Q value with reward directly
+    elif new_state[0] >= env.goal_position:
+        #q_table[discrete_state + (action,)] = reward
+        q_table[discrete_state + (action,)] = 0 
+
 
 
 
 env.close()
 
-
-'''
-for i_episode in range(20):
-    observation = env.reset()
-    for t in range(100):
-        env.render()
-        #print(observation)
-        action = env.action_space.sample()
-        observation, reward, done, info = env.step(action)
-        if done:
-            #print("Episode finished after {} timesteps".format(t+1))
-            break
-env.close()
-'''
