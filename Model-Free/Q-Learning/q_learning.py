@@ -6,7 +6,7 @@ import numpy as np
 
 env = gym.make('MountainCar-v0')
 
-#getting the number of available actions in the ennvironment
+# Getting the number of available actions in the environment
 ENV_ACTION_SPACE_NUMBER = env.action_space.n
 
 # Q-Learning settings
@@ -24,35 +24,51 @@ START_EPSILON_DECAYING = 1
 END_EPSILON_DECAYING = EPISODES//2
 epsilon_decay_value = epsilon/(END_EPSILON_DECAYING - START_EPSILON_DECAYING)
 
-#actions space
-action_space = spaces.Discrete(ENV_ACTION_SPACE_NUMBER) # number of available actions as a ser {0,1,2...}
+# Actions space
+# Number of available actions as a ser {0,1,2...}
+action_space = spaces.Discrete(ENV_ACTION_SPACE_NUMBER)
 action = action_space.sample()
-print(f"Available actions: {ENV_ACTION_SPACE_NUMBER}. Choosen action: {action}")
+print(
+    f"Available actions: {ENV_ACTION_SPACE_NUMBER}. Choosen action: {action}")
 
-#first always reset the env
+# First always reset the env
 env.reset()
 
 print(f"high OS len: {len(env.observation_space.high)}")
 print(f"low OS len:{len(env.observation_space.low)}")
 
 # Grouping the similar states into buckets (using 20 buckets * the length of the observation space)
-# If the observation space has information about velocity and position, the len will be 2, meaning a matrix of 20*20. 
-# So we are grouping all positions and velocities to reduce the number of possible values for the Q-table 
+# If the observation space has information about velocity and position, the len will be 2, meaning a matrix of 20*20.
+# So we are grouping all positions and velocities to reduce the number of possible values for the Q-table
 DISCRETE_OBSERVATIO_SPACE_SIZE = [20] * len(env.observation_space.high)
-discrete_observation_space_window_size = (env.observation_space.high - env.observation_space.low)/DISCRETE_OBSERVATIO_SPACE_SIZE
+discrete_observation_space_window_size = (
+    env.observation_space.high - env.observation_space.low)/DISCRETE_OBSERVATIO_SPACE_SIZE
 print(discrete_observation_space_window_size)
 
-#building the q table. It is a 20*len(env.observation_space.high)*ENV_ACTION_SPACE_NUMBER shape
-q_table = np.random.uniform(low=-2, high=0, size=(DISCRETE_OBSERVATIO_SPACE_SIZE + [ENV_ACTION_SPACE_NUMBER]))
+# Building the q table. It is a 20*len(env.observation_space.high)*ENV_ACTION_SPACE_NUMBER shape
+q_table = np.random.uniform(
+    low=-2, high=0, size=(DISCRETE_OBSERVATIO_SPACE_SIZE + [ENV_ACTION_SPACE_NUMBER]))
 print(f"q table shape: {q_table.shape}")
 
 
+
+
 def get_discrete_state(state):
-    discrete_state = (state - env.observation_space.low)/discrete_observation_space_window_size
-    return tuple(discrete_state.astype(np.int))  # we use this tuple to look up the 3 Q values for the available actions in the q-table
+    '''
+    Basically here we are scaling the state values by making a normalization of them
+    Usually  (value - minimum)/range  is a way to normalize values
+    Like imagine you have values from 5 to 8,  and minimum is 5  and range is 3, you'll get all your values from 0 to 1
+    'cause 
+    if value = 5    (5 -5) / 3 = 0/3 = 0
+    if value = 8    (8 - 5) / 3 = 3/3 =  1
+    '''
+    discrete_state = (state - env.observation_space.low) / discrete_observation_space_window_size
+    # We use this tuple to look up the 3 Q values for the available actions in the q-table
+    return tuple(discrete_state.astype(np.int))
 
 
 for episode in range(EPISODES):
+    # Getting the initial state from the environment
     discrete_state = get_discrete_state(env.reset())
     done = False
 
@@ -60,6 +76,10 @@ for episode in range(EPISODES):
         print(episode)
 
     while not done:
+        # To have more exploration and to the agent not always use the first way he figured out to find his goal
+        # We make a comparison with a random value. 
+        # One condition we use the q table (updated by the agent, and with the ways he explored before)
+        # The other condition uses a random action existing in the action space
         if np.random.random() > epsilon:
             # Get action from Q table
             action = np.argmax(q_table[discrete_state])
@@ -67,8 +87,10 @@ for episode in range(EPISODES):
             # Get random action
             action = np.random.randint(0, env.action_space.n)
 
+        # Passing the action to environment, so the agent performs the action a gets the new state and the reward. Here also we find if the environment simulation is done
         new_state, reward, done, _ = env.step(action)
 
+        # normalizing the state we got from the environment after performing the action
         new_discrete_state = get_discrete_state(new_state)
 
         if episode % SHOW_EVERY == 0:
@@ -81,10 +103,10 @@ for episode in range(EPISODES):
             # Current Q value (for current state and performed action)
             current_q = q_table[discrete_state + (action,)]
             # And here's our equation for a new Q value for current state and action
-            new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
+            new_q = (1 - LEARNING_RATE) * current_q + \
+                LEARNING_RATE * (reward + DISCOUNT * max_future_q)
             # Update Q table with new Q value
             q_table[discrete_state + (action,)] = new_q
-
 
         discrete_state = new_discrete_state
     # Decaying is being done every episode if episode number is within decaying range
@@ -94,10 +116,7 @@ for episode in range(EPISODES):
     # Simulation ended (for any reson) - if goal position is achived - update Q value with reward directly
     elif new_state[0] >= env.goal_position:
         #q_table[discrete_state + (action,)] = reward
-        q_table[discrete_state + (action,)] = 0 
-
-
+        q_table[discrete_state + (action,)] = 0
 
 
 env.close()
-
